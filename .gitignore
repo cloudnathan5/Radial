@@ -1,0 +1,11 @@
+# Local tooling
+.DS_Store
+*.log
+
+# Cloudflare Worker (only if wrangler is ever installed locally rather than via npx)
+node_modules/
+.wrangler/
+worker/node_modules/
+
+# Scratch
+_*.html

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Station map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; font-family: Archivo, system-ui, sans-serif; }
+  #map { position: absolute; inset: 0; background: var(--map-bg, #EAEAE8); }
+  body[data-theme="dark"] #map { background: #16161A; }
+  body[data-theme="dark"] .leaflet-container { background: #0D0D0F; }
+  .cl {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 999px; font-weight: 600; letter-spacing: -0.02em;
+    background: var(--map-accent, #CC5500); color: var(--map-accent-fg, #fff);
+    border: 2px solid var(--map-surface, rgba(255,255,255,0.85));
+    box-shadow: 0 2px 8px rgba(0,0,0,0.28); cursor: pointer;
+  }
+  /* No colour overrides per theme: the tokens pushed from the app already describe
+     whichever palette is active. A `body[data-theme=dark]` rule would outrank the
+     custom properties on specificity and pin the markers to one hardcoded colour. */
+  .pin { width: 12px; height: 12px; border-radius: 999px; background: var(--map-pin, #121211); border: 2px solid var(--map-pin-edge, #fff); box-shadow: 0 1px 5px rgba(0,0,0,0.35); cursor: pointer; }
+
+  .pin.on { background: var(--map-accent, #CC5500); transform: scale(1.35); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    border-radius: 4px; background: var(--map-surface, #fff); color: var(--map-fg, #121211);
+  }
+  .leaflet-popup-content { margin: 10px 12px; font-size: 12px; min-width: 190px; }
+  .pu-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--map-fg3, #8E8E88); margin-bottom: 6px; }
+  .pu-r { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--map-line, #EAEAE8); }
+  .pu-r:first-of-type { border-top: 0; }
+  .pu-n { flex: 1; font-weight: 500; color: var(--map-fg, #121211); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+  .pu-b { border: 0; background: var(--map-accent, #CC5500); color: var(--map-accent-fg, #fff); width: 22px; height: 22px; border-radius: 999px; cursor: pointer; font-size: 9px; flex: none; }
+  .pu-m { font-family: "Archivo Mono", monospace; font-size: 10px; color: var(--map-fg3, #8E8E88); }
+  .attr { font-family: Archivo, sans-serif; }
+
+  /* Leaflet's own chrome ships white and hardcoded, which reads as a bright cut-out
+     on any dark palette. Themed from the same tokens as everything else. */
+  .leaflet-control-attribution {
+    background: var(--map-surface, #fff) !important;
+    color: var(--map-fg3, #8E8E88) !important;
+    border-top: 1px solid var(--map-line, #EAEAE8);
+    border-left: 1px solid var(--map-line, #EAEAE8);
+    border-radius: 3px 0 0 0; font-size: 10px; padding: 2px 6px;
+  }
+  .leaflet-control-attribution a { color: var(--map-fg2, #5c5c57) !important; }
+  .leaflet-control-attribution a:hover { color: var(--map-accent, #CC5500) !important; }
+  .leaflet-control-attribution svg { display: none; }
+
+  .leaflet-bar, .leaflet-bar a {
+    border-color: var(--map-line, #ccc) !important;
+    background: var(--map-surface, #fff) !important;
+    color: var(--map-fg, #121211) !important;
+  }
+  .leaflet-bar a:hover {
+    background: var(--map-raised, #f4f4f4) !important;
+    color: var(--map-accent, #CC5500) !important;
+  }
+  .leaflet-bar a.leaflet-disabled { color: var(--map-fg3, #bbb) !important; }
+  .leaflet-popup-close-button { color: var(--map-fg3, #8E8E88) !important; }
+  .leaflet-popup-close-button:hover { color: var(--map-accent, #CC5500) !important; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+var map = L.map('map', { worldCopyJump: true, zoomControl: true, attributionControl: true }).setView([30, 8], 3);
+
+// Esri's Canvas basemaps, for two reasons. Labels are in English everywhere, where
+// OSM's standard style renders each region in its local script (Україна, العراق,
+// 中国) — legible only to people who already read that script. And they ship real
+// light and dark variants, so dark mode no longer needs a CSS invert filter over
+// light tiles, which mangled the colours.
+var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
+var ATTR = 'Tiles &copy; Esri | &copy; OpenStreetMap contributors';
+var tileOpts = { maxNativeZoom: 16, maxZoom: 18, className: 'attr', attribution: ATTR };
+var baseLayer = null, labelLayer = null, tileSet = null;
+
+// Labels are a separate overlay from the base, which is what keeps them readable
+// over the coloured cluster markers.
+function setTiles(dark) {
+  var want = dark ? 'World_Dark_Gray' : 'World_Light_Gray';
+  if (want === tileSet) return;
+  tileSet = want;
+  if (baseLayer) map.removeLayer(baseLayer);
+  if (labelLayer) map.removeLayer(labelLayer);
+  baseLayer  = L.tileLayer(ESRI + want + '_Base/MapServer/tile/{z}/{y}/{x}', tileOpts).addTo(map);
+  labelLayer = L.tileLayer(ESRI + want + '_Reference/MapServer/tile/{z}/{y}/{x}', tileOpts).addTo(map);
+}
+setTiles(false);
+
+var stations = [], layer = L.layerGroup().addTo(map), current = null;
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+
+function cellSize() {
+  var z = map.getZoom();
+  if (z <= 2) return 12; if (z <= 3) return 7; if (z <= 4) return 4;
+  if (z <= 5) return 2; if (z <= 6) return 1; if (z <= 8) return 0.4;
+  if (z <= 10) return 0.15; if (z <= 12) return 0.05; return 0.01;
+}
+
+function render() {
+  layer.clearLayers();
+  var size = cellSize(), groups = {}, b = map.getBounds().pad(0.35);
+  for (var i = 0; i < stations.length; i++) {
+    var s = stations[i];
+    if (!b.contains([s.lat, s.lon])) continue;
+    var k = Math.round(s.lat / size) + ':' + Math.round(s.lon / size);
+    (groups[k] || (groups[k] = [])).push(s);
+  }
+  Object.keys(groups).forEach(function (k) {
+    var g = groups[k], lat = 0, lon = 0;
+    g.forEach(function (s) { lat += s.lat; lon += s.lon; });
+    lat /= g.length; lon /= g.length;
+    if (g.length === 1) {
+      var s = g[0], on = current === s.uuid;
+      L.marker([lat, lon], { icon: L.divIcon({ className: '', html: '<div class="pin' + (on ? ' on' : '') + '" title="' + esc(s.name) + '"></div>', iconSize: [12, 12], iconAnchor: [6, 6] }) })
+        .addTo(layer).bindPopup(popup(g)).on('click', function () { this.openPopup(); });
+    } else {
+      var n = g.length, d = n > 999 ? 46 : n > 99 ? 40 : n > 9 ? 34 : 28;
+      L.marker([lat, lon], { icon: L.divIcon({ className: '', html: '<div class="cl" style="width:' + d + 'px;height:' + d + 'px;font-size:' + (n > 999 ? 11 : 12) + 'px">' + n + '</div>', iconSize: [d, d], iconAnchor: [d / 2, d / 2] }) })
+        .addTo(layer)
+        .on('click', function (e) {
+          if (map.getZoom() >= 11) { this.bindPopup(popup(g)).openPopup(); }
+          else { map.setView(e.latlng, Math.min(map.getZoom() + 3, 12)); }
+        });
+    }
+  });
+}
+
+function popup(g) {
+  var head = g.length === 1 ? esc(g[0].country || 'Station') : g.length + ' stations';
+  var rows = g.slice(0, 14).map(function (s) {
+    return '<div class="pu-r"><button class="pu-b" data-uuid="' + s.uuid + '">&#9654;</button>' +
+      '<div class="pu-n" title="' + esc(s.name) + '">' + esc(s.name) + '</div>' +
+      '<div class="pu-m">' + (s.bitrate ? s.bitrate + 'k' : '') + '</div></div>';
+  }).join('');
+  var more = g.length > 14 ? '<div class="pu-m" style="padding-top:6px">+' + (g.length - 14) + ' more — zoom in</div>' : '';
+  return '<div class="pu-h">' + head + '</div>' + rows + more;
+}
+
+map.on('popupopen', function (e) {
+  e.popup.getElement().querySelectorAll('.pu-b').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      parent.postMessage({ type: 'play', uuid: btn.getAttribute('data-uuid') }, '*');
+    });
+  });
+});
+// Tell the parent what is on screen, so a side list can show just these.
+function reportViewport() {
+  var b = map.getBounds();
+  parent.postMessage({
+    type: 'viewport',
+    n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest(),
+    zoom: map.getZoom()
+  }, '*');
+}
+map.on('moveend zoomend', function () { render(); reportViewport(); });
+
+// The map lives in an iframe that starts hidden, so Leaflet's first size
+// measurement is stale. Re-measure whenever the container actually resizes.
+function resize() { map.invalidateSize(); render(); reportViewport(); }
+if (window.ResizeObserver) {
+  var seen = 0;
+  new ResizeObserver(function (entries) {
+    var w = entries[0].contentRect.width;
+    if (w > 0 && w !== seen) { seen = w; resize(); }
+  }).observe(document.getElementById('map'));
+}
+addEventListener('resize', resize);
+
+addEventListener('message', function (e) {
+  var d = e.data || {};
+  if (d.type === 'stations') { stations = d.stations || []; render(); reportViewport(); }
+  if (d.type === 'theme') {
+    document.body.setAttribute('data-theme', d.theme);
+    setTiles(d.theme === 'dark');
+    // Custom palettes send their tokens so pins and clusters match the app.
+    if (d.tokens) {
+      var r = document.documentElement.style;
+      r.setProperty('--map-bg', d.tokens.bg2 || '');
+      r.setProperty('--map-surface', d.tokens.bg || '');
+      r.setProperty('--map-fg', d.tokens.fg || '');
+      r.setProperty('--map-fg2', d.tokens.fg2 || '');
+      r.setProperty('--map-fg3', d.tokens.fg3 || '');
+      r.setProperty('--map-raised', d.tokens.bg3 || '');
+      r.setProperty('--map-line', d.tokens.line || '');
+      r.setProperty('--map-accent', d.tokens.accent || '');
+      r.setProperty('--map-accent-fg', d.tokens['accent-fg'] || '');
+      r.setProperty('--map-pin', d.tokens.fg || '');
+      r.setProperty('--map-pin-edge', d.tokens.bg || '');
+    }
+  }
+  if (d.type === 'current') { current = d.uuid; render(); }
+  if (d.type === 'focus' && d.lat != null) { map.setView([d.lat, d.lon], 9); }
+  if (d.type === 'resize') resize();
+});
+parent.postMessage({ type: 'map-ready' }, '*');
+reportViewport();
+</script>
+</body>
+</html>

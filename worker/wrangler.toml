@@ -1,0 +1,6 @@
+name = "radial-nowplaying"
+main = "index.js"
+compatibility_date = "2026-01-01"
+
+# The free plan is ample here: 100k requests/day, and this worker makes one
+# subrequest per call. Reading ~16 KB off a stream is I/O, not CPU time.

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radial — internet radio browser</title>
+<meta name="description" content="Browse, map and play internet radio stations from the radio-browser.info directory.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f5f5f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16161a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Radial">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- Replaced at runtime with a theme-coloured SVG; the PNG stays as a fallback
+     for browsers without SVG favicon support. -->
+<link rel="icon" id="favicon" type="image/svg+xml" href="icons/favicon-32.png">
+<link rel="alternate icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="themes.js"></script>
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <button class="rail-toggle" id="rail-toggle" title="Collapse sidebar" aria-label="Collapse sidebar" aria-expanded="true"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M10 3 L5 8 L10 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <div class="brand">
+      <div class="brand-text">
+        <div class="brand-name">RADIAL</div>
+        <div class="brand-sub">radio-browser.info</div>
+      </div>
+      <svg class="brand-mark" viewBox="0 0 48 48" width="34" height="34" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="4.2" fill="currentColor"/><g fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="butt"><path d="M19.48 14.74 A10.3 10.3 0 0 1 28.52 14.74"/><path d="M17.38 10.43 A15.1 15.1 0 0 1 30.62 10.43"/><path d="M15.28 6.11 A19.9 19.9 0 0 1 32.72 6.11"/><path d="M34.27 24.72 A10.3 10.3 0 0 1 29.76 32.54"/><path d="M39.06 25.05 A15.1 15.1 0 0 1 32.44 36.52"/><path d="M43.85 25.39 A19.9 19.9 0 0 1 35.13 40.50"/><path d="M18.24 32.54 A10.3 10.3 0 0 1 13.73 24.72"/><path d="M15.56 36.52 A15.1 15.1 0 0 1 8.94 25.05"/><path d="M12.87 40.50 A19.9 19.9 0 0 1 4.15 25.39"/></g></svg>
+    </div>
+
+    <nav class="nav" aria-label="Sections">
+      <button class="nav-item is-active" data-page="browse" aria-current="page"><span class="nav-num">01</span>Browse</button>
+      <button class="nav-item" data-page="library"><span class="nav-num">02</span>Library</button>
+      <button class="nav-item" data-page="custom"><span class="nav-num">03</span>Custom stream</button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div>
+        <div class="eyebrow">Sleep timer</div>
+        <div class="sleep-opts" id="sleep-opts">
+          <button class="sleep-btn" data-min="15">15m</button>
+          <button class="sleep-btn" data-min="30">30m</button>
+          <button class="sleep-btn" data-min="60">60m</button>
+          <button class="sleep-btn" data-min="90">90m</button>
+        </div>
+        <div class="sleep-left" id="sleep-left" hidden></div>
+      </div>
+      <button class="theme-toggle update-btn" id="update" hidden>
+        <span>Update ready</span>
+        <span class="kbd">&#8635;</span>
+      </button>
+      <button class="theme-toggle install-btn" id="install" hidden>
+        <span>Install app</span>
+        <span class="kbd">&#8595;</span>
+      </button>
+      <button class="theme-toggle" id="theme-toggle">
+        <span id="theme-label">Radial Dark</span>
+        <span class="kbd">&#8997;T</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- 01 · Browse -->
+    <section class="page page-browse" data-page="browse">
+      <div class="filters">
+        <div class="filter-row">
+          <label class="sr-only" for="q">Search station names</label>
+          <input id="q" class="input input-search" type="search" placeholder="Search station names&#8230;" autocomplete="off">
+
+          <label class="sr-only" for="order">Sort order</label>
+          <select id="order" class="select">
+            <option value="clickcount">Sort: most listeners</option>
+            <option value="votes">Sort: most votes</option>
+            <option value="name">Sort: name A&#8211;Z</option>
+            <option value="bitrate">Sort: highest bitrate</option>
+            <option value="random">Sort: random</option>
+          </select>
+
+          <button id="hidebroken" class="chip is-on" aria-pressed="true"><span class="chip-mark">&#10003;</span>Working only</button>
+
+        </div>
+
+        <div class="filter-row filter-row-wrap">
+          <label class="sr-only" for="category">Category</label>
+          <select id="category" class="select select-category">
+            <option value="">All categories</option>
+            <option value="music">Music</option>
+            <option value="news">News</option>
+            <option value="talk">Talk</option>
+            <option value="sports">Sports</option>
+            <option value="podcasts">Podcasts</option>
+            <option value="classical">Classical</option>
+            <option value="oldies">Oldies</option>
+            <option value="religious">Religious</option>
+            <option value="culture">Culture</option>
+            <option value="kids">Kids</option>
+            <option value="comedy">Comedy</option>
+          </select>
+
+          <label class="sr-only" for="country">Country</label>
+          <select id="country" class="select select-country"><option value="">All countries</option></select>
+
+          <label class="sr-only" for="tag">Genre</label>
+          <select id="tag" class="select select-tag"><option value="">All genres</option></select>
+
+          <label class="sr-only" for="language">Language</label>
+          <select id="language" class="select select-language"><option value="">All languages</option></select>
+
+          <label class="sr-only" for="codec">Codec</label>
+          <select id="codec" class="select">
+            <option value="">Any codec</option>
+            <option value="MP3">MP3</option>
+            <option value="AAC">AAC</option>
+            <option value="AAC+">AAC+</option>
+            <option value="OGG">OGG</option>
+            <option value="FLAC">FLAC</option>
+          </select>
+
+          <label class="sr-only" for="bitrate">Minimum bitrate</label>
+          <select id="bitrate" class="select">
+            <option value="0">Any bitrate</option>
+            <option value="64">64k+</option>
+            <option value="128">128k+</option>
+            <option value="192">192k+</option>
+            <option value="320">320k+</option>
+          </select>
+
+          <button id="reset" class="linkbtn">Reset</button>
+        </div>
+
+        <div class="filter-row filter-row-meta">
+          <div class="viewset" role="group" aria-label="View">
+            <button class="viewbtn is-on" data-view="list" aria-pressed="true" title="List view" aria-label="List view"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="1" y="3" width="3.2" height="2.2" rx="0.7" fill="currentColor"/><rect x="6" y="3" width="9" height="2.2" rx="1.1" fill="currentColor"/><rect x="1" y="6.9" width="3.2" height="2.2" rx="0.7" fill="currentColor"/><rect x="6" y="6.9" width="9" height="2.2" rx="1.1" fill="currentColor"/><rect x="1" y="10.8" width="3.2" height="2.2" rx="0.7" fill="currentColor"/><rect x="6" y="10.8" width="9" height="2.2" rx="1.1" fill="currentColor"/></svg></button>
+            <button class="viewbtn" data-view="map" aria-pressed="false" title="Map view" aria-label="Map view"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill-rule="evenodd" d="M8 1.4a4.7 4.7 0 0 0-4.7 4.7c0 3.5 4.7 8.5 4.7 8.5s4.7-5 4.7-8.5A4.7 4.7 0 0 0 8 1.4zm0 6.5a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6z" fill="currentColor"/></svg></button>
+          </div>
+          <div class="result-label" id="result-label" aria-live="polite">loading&#8230;</div>
+        </div>
+      </div>
+
+      <div class="browse-body" id="browse-body" data-view="list">
+        <div class="map-pane">
+          <iframe id="map-frame" src="map.html" title="Station map" loading="lazy"></iframe>
+          <div class="map-badge" title="Most stations in the directory publish no coordinates, so they cannot appear on the map"><span id="map-label">loading&#8230;</span> with coordinates</div>
+        </div>
+      <div class="split-handle" id="split-handle" role="separator" aria-orientation="vertical"
+           tabindex="0" aria-label="Resize map and list"></div>
+      <div class="table-scroll">
+        <div class="thead">
+          <div></div>
+          <div><button class="img-toggle is-on" id="img-toggle" aria-pressed="true"
+              title="Station artwork — click to turn off (stops all image requests)"
+              aria-label="Toggle station artwork"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="1.6" y="2.6" width="12.8" height="10.8" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.6" cy="6.4" r="1.25" fill="currentColor"/><path d="M2.6 12.2 L6.4 8.6 L8.8 11 L11.2 9 L13.4 11.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button></div>
+          <div>Station</div><div>Genre</div><div>Country</div>
+          <div>Language</div><div>Stream</div><div class="ta-r">Listeners</div>
+          <div class="ta-r">Votes</div><div></div>
+        </div>
+        <div id="rows" data-list="stations"></div>
+        <div class="empty" id="empty" hidden></div>
+      </div>
+      </div>
+    </section>
+
+    <!-- 02 · Library -->
+    <section class="page page-library" data-page="library" hidden>
+      <div class="section-head">
+        <div class="head-title">Favorites</div>
+        <div class="mono-note" id="fav-count">0 saved</div>
+      </div>
+      <div id="fav-rows" data-list="favs"></div>
+      <div class="placeholder" id="no-favs">Star a station in Browse to keep it here.</div>
+
+      <div class="section-head section-head-gap">
+        <div class="head-title">Recently played</div>
+        <button class="linkbtn" id="clear-recent">Clear</button>
+      </div>
+      <div id="recent-rows" data-list="recent"></div>
+      <div class="placeholder" id="no-recent">Nothing played yet this session.</div>
+
+      <div class="section-head section-head-gap">
+        <div class="head-title">Recordings</div>
+        <div class="mono-note" id="rec-count">0 saved</div>
+      </div>
+      <div id="rec-rows"></div>
+      <div class="placeholder placeholder-last" id="no-recordings">Use the &#9679; button in the player to record what you're listening to.</div>
+    </section>
+
+    <!-- 03 · Custom stream -->
+    <section class="page page-custom" data-page="custom" hidden>
+      <div class="custom-wrap">
+        <div class="head-title">Play a custom stream</div>
+        <p class="lede">Paste any direct audio stream URL (MP3, AAC, OGG) or an .m3u/.pls playlist link. Streams served over plain HTTP may be blocked by the browser on an HTTPS page.</p>
+        <form class="custom-form" id="custom-form">
+          <label class="sr-only" for="custom-url">Stream URL</label>
+          <input id="custom-url" class="input input-url" type="url" placeholder="https://stream.example.org/live.mp3" autocomplete="off">
+          <label class="sr-only" for="custom-name">Label</label>
+          <input id="custom-name" class="input input-label" type="text" placeholder="Label (optional)" autocomplete="off">
+          <button class="btn-primary" type="submit">Play</button>
+        </form>
+        <div class="form-error" id="custom-error" hidden></div>
+
+        <div class="eyebrow eyebrow-gap">Saved streams</div>
+        <div id="custom-rows" data-list="customs"></div>
+        <div class="placeholder" id="no-custom">Streams you play here are saved to this browser.</div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="player">
+    <div class="now">
+      <div class="art" id="art">
+        <span class="art-letter" id="art-letter">&#183;</span>
+        <img class="art-img" id="art-img" alt="" decoding="async" referrerpolicy="no-referrer" hidden>
+        <button class="art-toggle" id="art-toggle" data-mode="auto" hidden
+            aria-label="Artwork mode for this station"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="5.6" cy="6.4" r="1.3" fill="currentColor"/><path d="M2.8 12 L6.4 8.6 L8.8 11 L11.2 9 L13.2 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><line class="slash" x1="2.2" y1="13.8" x2="13.8" y2="2.2" stroke="currentColor" stroke-width="2.2"/></svg></button>
+      </div>
+      <div class="now-text">
+        <div class="now-name" id="now-name">Nothing playing</div>
+        <div class="now-line">
+          <span class="bars" id="bars" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="status" id="status" aria-live="polite">No station</span>
+          <span class="now-meta" id="now-meta">pick a station to start</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="t-play" id="toggle-play" title="Play / pause" aria-label="Play or pause"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8.6 5.9 L18.4 12 L8.6 18.1 Z" fill="currentColor" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg></button>
+      <button class="t-stop" id="stop-play" title="Stop" aria-label="Stop"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg></button>
+      <button class="t-rec" id="record" title="Record this stream" aria-label="Record this stream" aria-pressed="false" disabled><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg></button>
+      <button class="t-share" id="share" title="Copy stream link">Copy link</button>
+    </div>
+
+    <div class="output">
+      <button class="fav-cur" id="fav-current" title="Favorite" aria-label="Favorite current station" hidden>&#9734;</button>
+      <span class="vol-label">VOL</span>
+      <label class="sr-only" for="volume">Volume</label>
+      <input id="volume" class="vol" type="range" min="0" max="100" value="80">
+      <span class="vol-num" id="volume-label">80%</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal" id="theme-modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="theme-modal-title">
+    <div class="modal-head">
+      <div class="head-title" id="theme-modal-title">Theme</div>
+      <button class="modal-close" data-close aria-label="Close">&#215;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="eyebrow">Presets</div>
+      <div class="theme-grid" id="theme-grid"></div>
+
+      <div class="eyebrow eyebrow-gap">Font</div>
+      <select id="font-select" class="select" style="width: 100%;"></select>
+
+      <div class="eyebrow eyebrow-gap">Customise</div>
+      <div class="swatch-grid" id="swatch-grid"></div>
+
+      <div class="share-row" style="margin-top: 12px;">
+        <input id="preset-name" class="input input-label" placeholder="Name this theme&#8230;"
+               maxlength="24" spellcheck="false">
+        <button class="chip" id="preset-save">Save as preset</button>
+      </div>
+
+      <div class="eyebrow eyebrow-gap">Share code</div>
+      <p class="modal-note">Copy this to share the current theme, or paste one in to load it.</p>
+      <div class="share-row">
+        <input id="theme-code" class="input input-code" readonly spellcheck="false">
+        <button class="btn-primary" id="theme-copy">Copy</button>
+      </div>
+      <div class="share-row">
+        <input id="theme-load" class="input input-code" placeholder="Paste a share code&#8230;" spellcheck="false">
+        <button class="chip" id="theme-apply">Load</button>
+      </div>
+      <div class="form-error" id="theme-error" hidden></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
