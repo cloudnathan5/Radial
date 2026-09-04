@@ -36,7 +36,7 @@
 
 // Shown by /health so anyone can compare a deployment against the source.
 const VERSION = "1.0.0";
-const SOURCE = "https://github.com/nsudhaka/radial/blob/main/worker/index.js";
+const SOURCE = "https://github.com/cloudnathan5/Radial/blob/main/worker/index.js";
 
 const UA = "Radial/1.0 (+https://github.com/)";
 const CACHE_SECONDS = 15;     // also protects stations from repeated polling
