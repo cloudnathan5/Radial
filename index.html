@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=2">
 <meta name="theme-color" content="#f5f5f3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#16161a" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,9 +19,9 @@
 <link rel="icon" id="favicon" type="image/svg+xml" href="icons/favicon-32.png">
 <link rel="alternate icon" href="icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css">
-<script src="config.js"></script>
-<script src="themes.js"></script>
+<link rel="stylesheet" href="styles.css?v=2">
+<script src="config.js?v=2"></script>
+<script src="themes.js?v=2"></script>
 </head>
 <body>
 
@@ -155,8 +155,8 @@
         </div>
       <div class="split-handle" id="split-handle" role="separator" aria-orientation="vertical"
            tabindex="0" aria-label="Resize map and list"></div>
-      <div class="table-scroll">
-        <div class="thead">
+      <div class="table-scroll" role="grid" aria-label="Stations" aria-rowcount="-1">
+        <div class="thead" role="row">
           <div></div>
           <div><button class="img-toggle is-on" id="img-toggle" aria-pressed="true"
               title="Station artwork — click to turn off (stops all image requests)"
@@ -292,6 +292,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=2"></script>
 </body>
 </html>

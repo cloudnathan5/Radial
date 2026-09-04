@@ -1,7 +1,7 @@
 import {
   num, cap, esc, kbps, gainFor, safeName, stamp,
   fmtDuration, fmtSize, fmtClock, inBounds, normaliseHex
-} from "./lib.js";
+} from "./lib.js?v=2";
 
 /* Radial — internet radio browser.
    Vanilla ES2020, no build step. Data: https://api.radio-browser.info */
@@ -20,12 +20,18 @@ import {
 
   var LS = { favs: "rad.favs", recent: "rad.recent", custom: "rad.custom", theme: "rad.theme", vol: "rad.vol", images: "rad.images", pins: "rad.imgPins",
     view: "rad.view", font: "rad.font", myThemes: "rad.myThemes",
-    rail: "rad.rail", split: "rad.split" };
+    rail: "rad.rail", split: "rad.split", schema: "rad.v" };
 
-  // The app was called Opendial before; carry any existing settings across once.
-  (function migrateKeys() {
-    try {
+  // Stored shape is versioned, so future changes are a numbered step rather than
+  // another special case. Migrations run in order from whatever version is on disk;
+  // each is idempotent, so a half-applied run is safe to repeat.
+  var SCHEMA = 2;
+
+  var MIGRATIONS = [
+    // 0 -> 1: the app was called Opendial, and keys were prefixed od.*
+    function () {
       Object.keys(LS).forEach(function (k) {
+        if (k === "schema") return;
         var from = "od." + k, to = LS[k];
         if (localStorage.getItem(to) == null) {
           var v = localStorage.getItem(from);
@@ -33,7 +39,23 @@ import {
         }
         localStorage.removeItem(from);
       });
-    } catch (e) { /* storage disabled — nothing to migrate */ }
+    },
+    // 1 -> 2: it was called Radium, so the two built-in theme ids were radium-*
+    function () {
+      var t = load(LS.theme, null);
+      if (typeof t === "string" && t.indexOf("radium-") === 0) {
+        save(LS.theme, t.replace(/^radium-/, "radial-"));
+      }
+    }
+  ];
+
+  (function migrate() {
+    try {
+      var at = load(LS.schema, 0);
+      if (typeof at !== "number") at = 0;
+      for (var i = at; i < MIGRATIONS.length && i < SCHEMA; i++) MIGRATIONS[i]();
+      if (at !== SCHEMA) save(LS.schema, SCHEMA);
+    } catch (e) { /* storage unavailable — nothing to migrate */ }
   })();
 
   // radio-browser has no category concept — only free-form tags. Each category is
@@ -968,7 +990,7 @@ import {
     // Older builds stored the string "light" or "dark".
     if (stored === "light" || stored === "dark") theme = TH.byId("radial-" + stored);
     else if (stored && stored.tokens) theme = stored;
-    else if (typeof stored === "string") theme = TH.byId(stored.replace(/^radium-/, "radial-"));
+    else if (typeof stored === "string") theme = TH.byId(stored);
     state.theme = theme || TH.byId("radial-dark");
 
     // A ?theme= / #theme= code in the URL wins, so a shared link just works.
@@ -1265,7 +1287,12 @@ import {
 
   function rowHtml(s, i) {
     var m = rowModel(s);
-    return '<div class="row' + (m.cur ? " is-current" : "") + '" data-row-id="' + esc(idOf(s)) + '">' +
+    // role=row + aria-label so a screen reader announces a station rather than an
+    // anonymous group; tabindex makes the row itself reachable, not just its buttons.
+    var label = m.name + ", " + m.country + ", " + m.stream +
+      ", " + m.listeners + " listeners, " + m.votes + " votes";
+    return '<div class="row' + (m.cur ? " is-current" : "") + '" data-row-id="' + esc(idOf(s)) +
+      '" role="row" tabindex="-1" aria-rowindex="' + (i + 2) + '" aria-label="' + esc(label) + '">' +
       playBtn(m, i) +
       artCell(m, "art-row") +
       nameCell(m) +
@@ -1298,6 +1325,9 @@ import {
 
     var list = visibleStations();
     el.rows.innerHTML = list.map(rowHtml).join("");
+
+    if (el.rows.firstElementChild) el.rows.firstElementChild.tabIndex = 0;
+    el.tableScroll.setAttribute("aria-rowcount", String(list.length + 1));
 
     var isEmpty = list.length === 0;
     el.empty.hidden = !isEmpty;
@@ -1740,14 +1770,39 @@ import {
     el.themeCode.value = currentCode();
   }
 
+  // Focus is trapped while the dialog is open and returned to whatever opened it —
+  // without this, tabbing walks out of the modal into the page behind it.
+  var modalReturnFocus = null;
+
+  function focusables() {
+    return [].slice.call(el.themeModal.querySelectorAll(
+      'button, [href], input, select, [tabindex]:not([tabindex="-1"])'
+    )).filter(function (n) { return !n.disabled && n.offsetParent !== null; });
+  }
+
   function openThemeModal() {
+    modalReturnFocus = document.activeElement;
     el.themeModal.hidden = false;
     renderThemeModal();
+    var f = focusables();
+    if (f.length) f[0].focus();
   }
+
   function closeThemeModal() {
     el.themeModal.hidden = true;
     el.themeError.hidden = true;
     el.themeLoad.value = "";
+    if (modalReturnFocus && modalReturnFocus.focus) modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  function trapTab(e) {
+    if (e.key !== "Tab" || el.themeModal.hidden) return;
+    var f = focusables();
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 
   /* --------------------------------------------------------------- wiring */
@@ -1909,6 +1964,38 @@ import {
       b.addEventListener("click", function () { setView(b.dataset.view); });
     });
 
+    // Roving tabindex: one row is tabbable at a time, arrows move between them.
+    el.rows.addEventListener("keydown", function (e) {
+      var row = e.target.closest(".row");
+      if (!row) return;
+      var rows = [].slice.call(el.rows.children);
+      var i = rows.indexOf(row);
+      var next = null;
+      if (e.key === "ArrowDown") next = rows[i + 1];
+      else if (e.key === "ArrowUp") next = rows[i - 1];
+      else if (e.key === "Home") next = rows[0];
+      else if (e.key === "End") next = rows[rows.length - 1];
+      else if (e.key === "Enter" || e.key === " ") {
+        var btn = row.querySelector('[data-act="play"]');
+        if (btn) { e.preventDefault(); btn.click(); }
+        return;
+      } else return;
+      if (!next) return;
+      e.preventDefault();
+      rows.forEach(function (r) { r.tabIndex = -1; });
+      next.tabIndex = 0;
+      next.focus();
+      next.scrollIntoView({ block: "nearest" });
+    });
+
+    el.rows.addEventListener("focusin", function (e) {
+      var row = e.target.closest(".row");
+      if (row && row.tabIndex !== 0) {
+        [].forEach.call(el.rows.children, function (r) { r.tabIndex = -1; });
+        row.tabIndex = 0;
+      }
+    });
+
     el.tableScroll.addEventListener("scroll", function () {
       var e = el.tableScroll;
       if (e.scrollTop + e.clientHeight >= e.scrollHeight - 600) loadMore();
@@ -2000,6 +2087,7 @@ import {
     addEventListener("keydown", function (e) {
       if (e.altKey && (e.key === "t" || e.key === "T")) { e.preventDefault(); toggleTheme(); }
       if (e.key === "Escape" && !el.themeModal.hidden) closeThemeModal();
+      trapTab(e);
     });
 
     el.themeModal.addEventListener("click", function (e) {

@@ -8,14 +8,40 @@ Implemented from the `Radial.dc.html` Claude Design canvas.
 
 ## Run
 
-No build step, no dependencies to install — it's static files. Any static server works:
-
 ```bash
-python3 -m http.server 8137
+python3 -m http.server 8137     # any static server
+node --test                     # the tests; no install step
 ```
 
-Then open <http://localhost:8137>. Opening `index.html` via `file://` will not work:
-the radio-browser API requires an `http(s)` origin for CORS.
+
+No build step, no dependencies to install — it's static files. Any static server works:
+
+Open <http://localhost:8137>. `file://` will not work: the radio-browser API needs an
+`http(s)` origin for CORS, and ES modules will not load from `file://` either.
+
+### Releasing
+
+`index.html` stamps its assets `?v=N` and `sw.js` carries a matching `ASSET_V`.
+**Bump both together.** GitHub Pages serves with `max-age=600`, so without a changing
+URL a visitor can run new HTML against a stale script — a mismatch that is far worse
+than either file simply being old. The service worker also fetches with
+`cache: "no-cache"` so its own revalidation cannot be served from the HTTP cache.
+
+### Stored data
+
+Everything lives under `rad.*` in `localStorage`, with `rad.v` recording the schema
+version. Migrations are an ordered, idempotent list in `app.js`; two have run so far
+(the `od.*` prefix from when this was Opendial, and the `radium-*` theme ids). Adding
+a third means appending a function and bumping `SCHEMA`, rather than another
+special case. Recordings live separately in IndexedDB.
+
+### Accessibility
+
+The station list is a `role="grid"` with labelled rows, so a screen reader announces
+"RTL, France, AAC 64k, 1.4k listeners, 2.2k votes" rather than an anonymous group.
+Rows use a roving tabindex — arrows move between them, Enter or Space plays, Home and
+End jump to the ends. The theme dialog traps Tab and returns focus to whatever opened
+it. Icon-only controls carry `title` and `aria-label`.
 
 ## Files
 
@@ -31,6 +57,8 @@ the radio-browser API requires an `http(s)` origin for CORS.
 | `config.js` | Runtime config — set `proxy` to enable now-playing, empty for pure static |
 | `themes.js` | Preset palettes and the share-code encoder/decoder |
 | `icons/` | App icons (192/512 plus maskable variants, Apple touch, favicon) |
+| `lib.js` | Pure helpers — no DOM, no state; the layer the tests cover |
+| `lib.test.js` | `node --test`, no dependencies |
 | `worker/` | **Optional** Cloudflare Worker that reads now-playing metadata |
 
 `map.html` is sandboxed in an iframe and shares no globals with the app. The two talk
