@@ -1652,11 +1652,15 @@ import {
   }
 
   var SPLIT_MIN = 260;
+  var dragRect = null;      // container bounds, measured once per drag
+
   function applySplit(px) {
-    var body = el.browseBody;
-    var max = Math.max(SPLIT_MIN, body.getBoundingClientRect().width - 320);
+    // Measuring here would force a synchronous layout on every pointermove, and the
+    // handler needs the same rect — so a drag caches it once at pointerdown.
+    var rect = dragRect || el.browseBody.getBoundingClientRect();
+    var max = Math.max(SPLIT_MIN, rect.width - 320);
     state.split = Math.round(Math.min(max, Math.max(SPLIT_MIN, px)));
-    body.style.setProperty("--split-w", state.split + "px");
+    el.browseBody.style.setProperty("--split-w", state.split + "px");
   }
 
   function initSplit() {
@@ -1664,18 +1668,28 @@ import {
     var handle = el.splitHandle;
     if (!handle) return;
 
+    var pendingX = 0, rafId2 = 0;
+
     handle.addEventListener("pointerdown", function (e) {
       if (state.view !== "map") return;
       e.preventDefault();
       handle.setPointerCapture(e.pointerId);
       handle.classList.add("is-dragging");
       document.body.classList.add("is-resizing");
+      dragRect = el.browseBody.getBoundingClientRect();
     });
 
+    // Coalesced to one update per frame: pointermove can fire several times per
+    // frame on a high-rate pointer, and each update relayouts the whole row grid.
     handle.addEventListener("pointermove", function (e) {
       if (!handle.hasPointerCapture(e.pointerId)) return;
-      // Width is measured from the right edge, since the list is the right pane.
-      applySplit(el.browseBody.getBoundingClientRect().right - e.clientX);
+      pendingX = e.clientX;
+      if (rafId2) return;
+      rafId2 = requestAnimationFrame(function () {
+        rafId2 = 0;
+        // Measured from the right edge, since the list is the right-hand pane.
+        applySplit((dragRect ? dragRect.right : el.browseBody.getBoundingClientRect().right) - pendingX);
+      });
     });
 
     function end(e) {
@@ -1683,6 +1697,8 @@ import {
       handle.releasePointerCapture(e.pointerId);
       handle.classList.remove("is-dragging");
       document.body.classList.remove("is-resizing");
+      if (rafId2) { cancelAnimationFrame(rafId2); rafId2 = 0; }
+      dragRect = null;
       save(LS.split, state.split);
       var w = frameWin();
       if (w) w.postMessage({ type: "resize" }, "*");   // Leaflet must re-measure

@@ -512,3 +512,23 @@ title="Locked Out Of Heaven",artist="BRUNO MARS",url="..."      (Z100)
 
 Once a clean artist/title exists, the iTunes Search API is free, key-less and
 CORS-enabled — usable directly from the page for cover art and links.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
+
+## Credits
+
+- Station directory and metadata: [radio-browser.info](https://www.radio-browser.info/),
+  free and open. They ask that applications identify themselves via `User-Agent`;
+  a browser cannot set that header, so only the optional worker can comply.
+- Map rendering: [Leaflet](https://leafletjs.com/) (BSD-2-Clause).
+- Map tiles: Esri Canvas basemaps, with data © OpenStreetMap contributors. Esri was
+  chosen over OSM's standard tiles because it labels every region in English rather
+  than in the local script, and ships real light and dark variants.
+- Typefaces: Archivo, IBM Plex, Space Grotesk/Mono, Inter, JetBrains Mono and Share
+  Tech Mono via Google Fonts (OFL). OCR-B is offered as a local system font — no
+  font CDN carries a free cut of it.
+
+Recording is intended for personal time-shifting. Individual stations' terms may
+say otherwise, and that is between the listener and the station.

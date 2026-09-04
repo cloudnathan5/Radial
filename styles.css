@@ -204,7 +204,14 @@ input, select, button { font-family: inherit; }
 }
 .ta-r { text-align: right; }
 
-.row { height: 46px; border-bottom: 1px solid var(--line); background: transparent; }
+.row {
+  height: 46px; border-bottom: 1px solid var(--line); background: transparent;
+  /* Rows off screen skip layout entirely. With hundreds rendered, resizing the
+     split otherwise relayouts every one of them on each frame. The intrinsic size
+     keeps the scrollbar stable for the rows being skipped. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 46px;
+}
 .row:hover { background: var(--bg2); }
 .row.is-current { background: var(--accent-soft); }
 
