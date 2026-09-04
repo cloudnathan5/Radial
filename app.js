@@ -1,3 +1,8 @@
+import {
+  num, cap, esc, kbps, gainFor, safeName, stamp,
+  fmtDuration, fmtSize, fmtClock, inBounds, normaliseHex
+} from "./lib.js";
+
 /* Radial — internet radio browser.
    Vanilla ES2020, no build step. Data: https://api.radio-browser.info */
 (function () {
@@ -104,10 +109,6 @@
 
   // Perceived loudness tracks roughly the square of the fader position, not the
   // position itself — a linear slider makes everything below ~20% sound loud.
-  function gainFor(v) {
-    var x = Math.max(0, Math.min(100, +v || 0)) / 100;
-    return x * x;
-  }
 
   function load(key, fallback) {
     try { var v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; }
@@ -115,16 +116,6 @@
   }
   function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
 
-  function num(n) {
-    if (n == null) return "—";
-    return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "") + "k" : String(n);
-  }
-  function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-    });
-  }
   function idOf(s) { return s && (s.stationuuid || s.url); }
   function $(sel) { return document.querySelector(sel); }
 
@@ -680,23 +671,6 @@
   var P_PAUSE = '<rect x="7.6" y="6" width="3.4" height="12" rx="1.3" fill="currentColor"/>' +
                 '<rect x="13" y="6" width="3.4" height="12" rx="1.3" fill="currentColor"/>';
 
-  function fmtDuration(ms) {
-    var t = Math.floor(ms / 1000), h = Math.floor(t / 3600),
-        m = Math.floor((t % 3600) / 60), sec = t % 60;
-    var mm = (h ? String(m).padStart(2, "0") : String(m)) + ":" + String(sec).padStart(2, "0");
-    return h ? h + ":" + mm : mm;
-  }
-  function fmtSize(b) {
-    return b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.round(b / 1024) + " KB";
-  }
-  function safeName(s) {
-    return String(s || "recording").replace(/[^\w\-. ]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 60);
-  }
-  function stamp(ms) {
-    var d = ms ? new Date(ms) : new Date(), p = function (n) { return String(n).padStart(2, "0"); };
-    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) +
-      " " + p(d.getHours()) + "-" + p(d.getMinutes());
-  }
 
   function note(msg) {
     recNote = msg;
@@ -1119,13 +1093,7 @@
   // In split view the list follows the map: it shows the geolocated stations
   // currently on screen, rather than the top-400 the table normally holds.
   function inViewport(s) {
-    var v = state.viewport;
-    if (!v) return true;
-    var lat = +s.geo_lat, lon = +s.geo_long;
-    if (!lat && !lon) return false;
-    if (lat > v.n || lat < v.s) return false;
-    // A viewport spanning the antimeridian reports west > east.
-    return v.w <= v.e ? (lon >= v.w && lon <= v.e) : (lon >= v.w || lon <= v.e);
+    return inBounds(+s.geo_lat, +s.geo_long, state.viewport);
   }
 
   var SPLIT_PAGE = 300;         // rows rendered per step in the map list
@@ -1220,10 +1188,6 @@
   // which renders as "MP3 128000k". Values at that magnitude are unambiguous, so
   // rescale them; oddities in the low thousands are left alone because there is no
   // way to tell a bad number from an unusual one.
-  function kbps(b) {
-    b = +b || 0;
-    return b >= 10000 ? Math.round(b / 1000) : b;
-  }
 
   function artUrl(s) {
     var u = (s && s.favicon || "").trim();
@@ -1366,12 +1330,6 @@
     el.recentRows.innerHTML = state.recent.map(libRow).join("");
   }
 
-  function fmtClock(sec) {
-    if (!sec && sec !== 0) return "—";
-    var m = Math.floor(sec / 60), r = Math.round(sec % 60);
-    if (r === 60) { m += 1; r = 0; }
-    return m + ":" + String(r).padStart(2, "0");
-  }
   function fmtWhen(ms) {
     var d = new Date(ms);
     return d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + ", " +
@@ -2061,13 +2019,11 @@
     el.swatchGrid.addEventListener("input", function (e) {
       var hex = e.target.closest("input[data-hex]");
       if (!hex) return;
-      var v = hex.value.trim();
-      if (v && v[0] !== "#") v = "#" + v;
-      var ok = /^#[0-9a-f]{6}$/i.test(v);
-      hex.classList.toggle("is-bad", !!v && !ok);
-      if (!ok) return;
+      var v = normaliseHex(hex.value);
+      hex.classList.toggle("is-bad", !!hex.value.trim() && !v);
+      if (!v) return;
       var tokens = Object.assign({}, state.theme.tokens);
-      tokens[hex.dataset.hex] = v.toLowerCase();
+      tokens[hex.dataset.hex] = v;
       setTheme({ id: "custom", name: "Custom", dark: state.theme.dark, tokens: tokens });
     });
 

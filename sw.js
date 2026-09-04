@@ -4,7 +4,7 @@
    radio-browser API, audio streams, map tiles and fonts all pass straight
    through. Intercepting an endless audio stream would be a memory leak. */
 
-var VERSION = "radial-v1";
+var VERSION = "radial-v2";
 var SHELL = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ var SHELL = [
   "./app.js",
   "./config.js",
   "./themes.js",
+  "./lib.js",
   "./map.html",
   "./manifest.json",
   "./icons/icon-192.png",
