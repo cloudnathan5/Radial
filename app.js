@@ -1,7 +1,7 @@
 import {
   num, cap, esc, kbps, gainFor, safeName, stamp,
   fmtDuration, fmtSize, fmtClock, inBounds, normaliseHex
-} from "./lib.js?v=2";
+} from "./lib.js?v=3";
 
 /* Radial — internet radio browser.
    Vanilla ES2020, no build step. Data: https://api.radio-browser.info */
@@ -1213,7 +1213,13 @@ import {
 
   function artUrl(s) {
     var u = (s && s.favicon || "").trim();
-    return /^https?:\/\//i.test(u) ? u : "";
+    if (!/^https?:\/\//i.test(u)) return "";
+    // Upgraded to https because the page is served over TLS, and an http image is
+    // mixed content — it downgrades the padlock to "not fully secure" for the whole
+    // site. About 16% of the directory's artwork URLs are http. Where the host has
+    // no TLS the image simply fails to load and the lettered tile shows through,
+    // which is the path the ~10% of dead artwork links already take.
+    return u.replace(/^http:\/\//i, "https://");
   }
 
   // The image sits over the lettered tile; if it fails to load it is hidden and the
