@@ -4,7 +4,7 @@
    radio-browser API, audio streams, map tiles and fonts all pass straight
    through. Intercepting an endless audio stream would be a memory leak. */
 
-var VERSION = "radial-v5";
+var VERSION = "radial-v6";
 
 // Must match the ?v= stamps in index.html. GitHub Pages serves assets with
 // max-age=600, so without a changing URL a visitor can end up running new HTML
@@ -30,8 +30,19 @@ self.addEventListener("install", function (e) {
   // No skipWaiting here on purpose: a new worker waits rather than taking over a
   // page that is already running (and possibly playing audio). It activates when
   // every tab is closed, or immediately if the page asks it to below.
+  // Each shell entry is fetched with cache:"reload" so the precache is filled from
+  // the network, never from the browser's HTTP cache. Without this, a stale copy of
+  // an asset can be promoted into a brand-new cache version and survive a deploy —
+  // the versioned ?v= URLs do not help, because the server ignores the query string
+  // and any previously-stored copy of that exact URL is what gets reused.
   e.waitUntil(
-    caches.open(VERSION).then(function (c) { return c.addAll(SHELL); })
+    caches.open(VERSION).then(function (c) {
+      return Promise.all(SHELL.map(function (url) {
+        return fetch(new Request(url, { cache: "reload" }))
+          .then(function (res) { if (res.ok) return c.put(url, res); })
+          .catch(function () { /* one bad entry must not fail the whole install */ });
+      }));
+    })
   );
 });
 
