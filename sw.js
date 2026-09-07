@@ -4,7 +4,7 @@
    radio-browser API, audio streams, map tiles and fonts all pass straight
    through. Intercepting an endless audio stream would be a memory leak. */
 
-var VERSION = "radial-v4";
+var VERSION = "radial-v5";
 
 // Must match the ?v= stamps in index.html. GitHub Pages serves assets with
 // max-age=600, so without a changing URL a visitor can end up running new HTML
